@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport"
+	content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+<title>signup</title>
+
+<link rel="shortcut icon" href="img/icon.png" />
+<link rel="apple-touch-icon" href="img/icon.png" />
+
+<script type="text/javascript">
+	var replyNum, message = "작성시 입력한 비밀번호를 입력해 주세요.", pwdConfirm = 0, btnKind = "";
+	$(function() {
+		/* 기본 덧글 목록 불러오기 */
+		var b_num = "<c:out value='${detail.b_num}'/>";
+		listAll(b_num)
+
+		/* 덧글 내용 저장 이벤트 */
+
+		$("#replyInsert").click(function() {
+
+			//작성자 이름에 대한 입력여부 검사
+
+			if (!chkData("#r_name", "이름을"))
+				return;
+
+			else if (!chkData("#r_pwd", "비밀번호를"))
+				return;
+
+			else if (!chkData("#r_content", "내용을"))
+				return;
+
+			else {
+				var insertUrl = "/replies/replyInsert.do";
+				/* 글 저장을 위한 Post 방식의 Ajax 연동 처리 */
+				$.ajax({
+					url : insertUrl, //전송 url
+					type : "post", //전송 시 method 방식
+					headers : {
+						"Content-Type" : "application/json",
+						"X-HTTP-Method-Override" : "POST"
+					},
+					dataType : "text",
+					data : JSON.stringify({
+						b_num : b_num,
+						r_name : $("#r_name").val(),
+						r_pwd : $("#r_pwd").val(),
+						r_content : $("#r_content").val()
+					}),
+					error : function() {
+						alert('시스템 오류 입니다. 관리자에게 문의 하세요');
+					},
+					success : function(resultData) {
+						if (resultData == "SUCCESS") {
+							alert("댓글 등록이 완료되었습니다.");
+							dataReset();
+							listAll(b_num);
+						}
+					}
+
+				});
+			}
+
+		});
+
+		/* 수정버튼 클릭시 수정폼 출력 */
+		$(document)
+				.on(
+						"click",
+						".update_form",
+						function() {
+							$(".reset_btn").click();
+							var currLi = $(this).parents("li");
+							if (pwdConfirm == 0) {
+								replyNum = currLi.attr("data-num");
+								btnKind = "upBtn";
+								pwdView(currLi);
+							} else if (pwdConfirm == 1) {
+								var conText = currLi.children().eq(1).html();
+								//console.log("conText: " + conText);
+
+								currLi.find("input[type='button']").hide();
+								var conArea = currLi.children().eq(1);
+
+								conArea.html("");
+								var data = "<textarea name='content' id='content'>"
+										+ conText + "</textarea>";
+								data += "<input type='button' class='update_btn' value='수정완료'>";
+								data += "<input type='button' class='reset_btn' value='수정취소'>";
+								conArea.html(data);
+							}
+						});
+
+		/* 초기화 버튼 */
+		$(document).on("click", ".reset_btn", function() {
+			pwdConfirm = 0;
+			btnKind = "";
+			var conText = $(this).parents("li").find("textarea").html();
+			$(this).parents("li").find("input[type='button']").show();
+			var conArea = $(this).parents("li").children().eq(1);
+			conArea.html(conText);
+		});
+		/* 글 수정를 위한 Ajax 연동 처리 */
+		$(document).on("click", ".update_btn", function() {
+			var r_num = $(this).parents("li").attr("data-num");
+			var r_content = $("#content").val();
+			if (!chkData("#content", "댓글 내용을"))
+				return;
+			else {
+				$.ajax({
+					url : '/replies/' + r_num + ".do", //전송 url
+					type : "put", //전송 시 method 방식
+					headers : {
+						"Content-Type" : "application/json",
+						"X-HTTP-Method-Override" : "PUT"
+					},
+					data : JSON.stringify({
+						r_content : r_content
+					}),
+					dataType : "text",
+					success : function(result) {
+						console.log("result" + result);
+						if (result == "SUCCESS") {
+							alert("수정 되었습니다.");
+							listAll(b_num);
+							pwdConfirm = 0;
+						}
+					}
+				});
+			}
+		});
+		/* 글 삭제를 위한 Ajax 연동 처리 */
+		$(document).on("click", ".delete_btn", function() {
+			$(".reset_btn").click();
+			var currLi = $(this).parents("li")
+			replyNum = currLi.attr("data-num");
+
+			if (pwdConfirm == 0) {
+				pwdView(currLi);
+				btnKind = "delBtn";
+			} else if (pwdConfirm == 1) {
+				if (confirm("선택하신 댓글을 삭제하시겠습니다까?")) {
+					$.ajax({
+						type : "delete", //전송 시 method 방식
+						url : "/replies/" + replyNum + ".do", //전송 url
+						headers : {
+							"Content-Type" : "application/json",
+							"X-HTTP-Method-Override" : "DELETE"
+						},
+						dataType : "text",
+						success : function(result) {
+							console.log("result: " + result);
+							if (result == "SUCCESS") {
+								alert("삭제 되었습니다.");
+								listAll(b_num);
+
+							}
+						}
+					});
+				} else {
+					pwdConfirm = 0;
+
+				}
+			}
+		});
+
+		/* 비밀번호 취소 버튼 클릭 시 처리 이벤트 */
+		$(document).on("click", ".pwdResetBut", function() {
+			//$(this).parents("li").removeClass("glayLayer");
+			//$(this).parent().parent().removeClass("overLayer");
+			$(this).parent().parent().html("");
+		});
+
+		$(document).on("focus", ".passwd", function() {
+			$(this).val("");
+			var span = $(this).parents("form").find("span");
+			span.removeClass("msg_error");
+			span.addClass("msg_default");
+			span.html(message);
+		});
+
+		/* 비밀번호 확인 버튼 클릭 시 처리 이벤트 */
+		$(document).on("click", ".pwdCheckBut", function() {
+			var form = $(this).parents("form");
+			var pwd = form.find(".passwd");
+			var r_msg = form.find(".r_msg");
+
+			var up = $(this).parents("li").find(".update_form");
+			var del = $(this).parents("li").find(".delete_btn");
+
+			if (!formCheck(pwd, r_msg, "비밀번호를"))
+				return;
+			else {
+				$.ajax({
+					url : "/replies/pwdConfirm.do", //전송 url
+					type : "POST", //전송 시 method 방식
+					data : "r_num=" + replyNum + "&r_pwd=" + pwd.val(),
+					dataType : "text",
+					error : function() {
+						alert('시스템 오류 입니다. 관리자에게 문의하세요');
+					},
+					success : function(resultData) {
+						if (resultData == 0) {//일치하지 않는 경우
+							r_msg.addClass("msg_error");
+							r_msg.text("입력한 비민번호가 일치하지 않습니다.");
+						} else if (resultData == 1) {//일치할 경우
+							pwdConfirm = resultData;
+							$(".pwdResetBut").click();
+
+							if (btnKind == "upBtn") {
+								up.click();
+							} else if (btnKind == "delBtn") {
+								del.click();
+							}
+							btnKind = "";
+							pwdConfirm = 0;
+						}
+					}
+				});
+			}
+		});
+	});
+
+	function pwdView(area) {
+		$(".pwdResetBut").click();
+		var pwd_div = $("<div>");
+
+		var data = "<form name='f_pwd'>"
+		data += "<label for='passwd'>비밀번호 : </label>";
+		data += "<input type='password' name='passwd' class='passwd'/>";
+		data += "<input type='button' class='pwdCheckBut' value='확인' />";
+		data += "<input type='button' class='pwdResetBut' value='취소' />";
+		data += "<span  class='r_msg msg_default'>" + message
+				+ "</span></form>";
+		pwd_div.html(data);
+
+		area.append(pwd_div);
+
+	}
+
+	//리스트 요청 함수
+	function listAll(b_num) {
+		$("#comment_list").html("");
+		var url = "/replies/all/" + b_num + ".do";
+		$.getJSON(url, function(data) {
+			console.log(data.length);
+
+			$(data).each(function() {
+				var r_num = this.r_num;
+				var r_name = this.r_name;
+				var r_content = this.r_content;
+				var r_date = this.r_date;
+				addNewItem(r_num, r_name, r_content, r_date);
+			});
+		}).fail(function() {
+			alert("덧글 목록을 불러오는데 실패하였습니다. 잠시후에 다시 시도해 주세요.");
+		});
+	}
+
+	/* 새로운 글을 화면에 추가하기 위한 함수 */
+	function addNewItem(r_num, r_name, r_content, r_date) {
+		//새로운 글이 추가될 li태그 객체
+		var new_li = $("<li>");
+		new_li.attr("data-num", r_num);
+		new_li.addClass("comment_item");
+
+		//작성자 정보가 지정될 <p>태그
+		var writer_p = $("<p>");
+		writer_p.addClass("writer");
+
+		//작성자 정보의 이름
+		var name_span = $("<span>");
+		name_span.addClass("name");
+		name_span.html(r_name + "님");
+
+		//작성 일시
+		var date_span = $("<span>");
+		date_span.html(" / " + r_date + " ");
+
+		//수정하기 버튼
+		var up_input = $("<input>");
+		up_input.attr({
+			"type" : "button",
+			"value" : "수정하기"
+		});
+		up_input.addClass("update_form");
+
+		//삭제하기 버튼
+		var del_input = $("<input>");
+		del_input.attr({
+			"type" : "button",
+			"value" : "삭제하기"
+		});
+		del_input.addClass("delete_btn");
+
+		//내용
+		var content_p = $("<p>");
+		content_p.addClass("con");
+		content_p.html(r_content);
+
+		//조립하기
+		writer_p.append(name_span).append(date_span).append(up_input).append(
+				del_input)
+		new_li.append(writer_p).append(content_p);
+		$("#comment_list").append(new_li);
+	}
+
+	function dataReset() {
+		$("#r_name").val("");
+		$("#r_pwd").val("");
+		$("#r_content").val("");
+	}
+</script>
+
+<style type="text/css">
+@charset "UTF-8";
+
+body {
+	font-family: Noto Sans
+}
+
+table {
+	border-collapse: collapse;
+	border-spacing: 0px;
+}
+
+table td.subtd {
+	background-color: #FFFEF0;
+}
+
+table td {
+	padding: 8px 5px;
+	border: 0.01px groove #A7EEFF;
+	border-left: none;
+	border-right: none;
+}
+
+input.inputBC {
+	background-color: #FFFEF0;
+}
+
+.title {
+	letter-spacing: 10px;
+}
+
+#txt-search {
+	width: 300px;
+	height: 30px;
+	border: 1px solid #ffecd9;
+	border-radius: 7px;
+	background-color: #fff6eb;
+	vertical-align: middle;
+	outline: none;
+	text-indent: 10px;
+	font-size: 17px;
+}
+
+#a {
+	color: red;
+}
+
+#hateAUTO {
+	font-size: 40pt;
+}
+</style>
+
+</head>
+<body onload="creatAuth()">
+	<form method="post" action="signup.jsp">
+
+		<h3 align="center" class="title">회원가입</h3>
+
+
+		<table align="center" class="table">
+			<tr>
+				<th><h4>사이트 이용정보 입력</h4></th>
+			</tr>
+
+			<tr>
+				<td rowspan="2" class="subtd"><strong>아이디</strong></td>
+				<td class="bottomN" id="rightN">영문자, 숫자, _만 입력 가능. 최소 3자이상
+					입력하세요.</td>
+
+			</tr>
+			<tr>
+				<td class="topN" id="rightN"><input type="text" name="id"
+					id="txt-search" class="inputBC" size="20" required="required"
+					autofocus="autofocus" /></td>
+			</tr>
+			<tr>
+				<td class="subtd"><strong>비밀번호</strong></td>
+				<td id="rightN"><input type="password" name="pwd"
+					id="txt-search" class="inputBC" size="20" required="required" /></td>
+
+			</tr>
+			<tr>
+				<td class="subtd"><strong>비밀번호 확인</strong></td>
+				<td id="rightN"><input type="password" name="pwd2"
+					id="txt-search" class="inputBC" size="20" required="required" /></td>
+			</tr>
+
+			<tr>
+				<th><br /></th>
+			</tr>
+
+
+
+
+			<tr>
+				<th><h4>개인정보 입력</h4></th>
+			</tr>
+			<tr>
+				<td class="subtd"><strong>이름</strong></td>
+				<td id="rightN"><input type="text" name="name" class="inputBC"
+					id="txt-search" size="10" required="required" /></td>
+
+			</tr>
+			<tr>
+				<td rowspan="2" class="subtd"><strong>닉네임</strong></td>
+				<td class="bottomN" id="rightN">공백업이 한글, 영문, 숫자만 입력 가능(한글2자,
+					영문4자 이상)<br /> 닉네임을 바꾸시면 앞으로 1일 이내에는 변경 할 수 없습니다.
+			</tr>
+			<tr>
+				<td class="topN" id="rightN"><input type="text" name="nickname"
+					id="txt-search" class="inputBC" size="10" required="required" /></td>
+			</tr>
+			<tr>
+				<td class="subtd"><strong>이메일</strong></td>
+				<td id="rightN"><input type="email" name="email"
+					id="txt-search" class="inputBC" size="60" /></td>
+			</tr>
+			<tr>
+				<td class="subtd"><strong>가입경로</strong></td>
+				<td id="rightN"><input type="radio" name="from"
+					value="internet" /> <label>인터넷검색</label> <input type="radio"
+					name="from" value="bannerAD" /> <label>배너광고</label> <input
+					type="radio" name="from" value="news" /> <label>관련기사를보고</label> <input
+					type="radio" name="from" value="homepage" /> <label>미라지홈페이지보고</label>
+					<input type="radio" name="from" value="friend" /> <label>주변사람소개</label>
+					<input type="radio" name="from" value="etc" /> <label>기타</label></td>
+			</tr>
+			<tr>
+				<td class="subtd"><strong>전화번호</strong></td>
+				<td id="rightN"><input type="phone" name="phone"
+					id="txt-search" class="inputBC" size="20" /></td>
+
+			</tr>
+			<tr>
+				<td class="subtd"><strong>휴대폰번호</strong></td>
+				<td id="rightN"><input type="phone" name="selphone"
+					id="txt-search" class="inputBC" size="20" required="required" /></td>
+			</tr>
+			<tr>
+				<td class="subtd"><strong>생일</strong></td>
+				<td id="rightN"><input type="date" name="birthday" /></td>
+			</tr>
+			<tr>
+				<td rowspan="4" class="subtd"><strong>주소</strong></td>
+				<td id="rightN"><input type="text" name="zipcode"
+					id="txt-search" class="inputBC" size="10" /> <input type="button"
+					value="주소 검색" /></td>
+			</tr>
+			<tr>
+				<td id="rightN"><input type="text" name="address"
+					id="txt-search" class="inputBC" size="50" />기본주소</td>
+			</tr>
+			<tr>
+				<td id="rightN"><input type="text" name="address_detail"
+					id="txt-search" class="inputBC" size="50" />상세주소</td>
+
+			</tr>
+			<tr>
+				<td id="rightN"><input type="text" name="address_ps"
+					id="txt-search" class="inputBC" size="50" />참고항목</td>
+			</tr>
+
+			<tr>
+				<th><br /></th>
+			</tr>
+
+
+
+			<tr>
+				<th><h4>기타 개인설정</h4></th>
+			</tr>
+
+
+			<tr>
+				<td class="subtd"><strong>카카오톡 메세지</strong></td>
+				<td id="rightN"><input type="checkbox" checked="checked" /> <strong>
+						카카오톡 메세지를 받겠습니다.</strong> <h id="a">>수신체크를 하시면 세일 소식을 가장 먼저 받아보실 수
+					있습니다.</h></td>
+			</tr>
+
+			<tr>
+				<td class="subtd"><strong>메일링서비스</strong></td>
+				<td id="rightN"><input type="checkbox" checked="checked" /> 정보
+					메일을 받겠습니다.</td>
+			</tr>
+			<tr>
+				<td class="subtd"><strong>SMS 수신여부</strong></td>
+				<td id="rightN"><input type="checkbox" checked="checked" />
+					휴대폰 문자메세지를 받겠습니다.</td>
+			</tr>
+			<tr>
+				<td rowspan="2" class="subtd"><strong>정보공개</strong></td>
+				<td class="bottomN" id="rightN">정보공개를 바꾸시면 앞으로 0일 이내에는 변경이
+					안됩니다.
+			</tr>
+			<tr>
+				<td class="topN" id="rightN"><input type="checkbox"
+					checked="checked" /> 다른분들이 나의 정보를 볼 수 있도록 합니다.</td>
+			</tr>
+			<tr>
+				<td rowspan="2" class="subtd"><strong>자동등록방지</strong></td>
+				<td id="rightN"><span id="hateAUTO"></span><input type="button"
+					value="새로고침" onclick="creatAuth()" /></td>
+
+
+			</tr>
+
+			<tr>
+				<td id="rightN">자동입력방지 문자를 입력해주세요.<input type="text"
+					id="txt-search" name="quiz" size="10" /><input type="button"
+					value="확인" /></td>
+			</tr>
+		</table>
+
+		<h6 align="center">
+			<input type="submit" value="회원가입" /> <input type="reset" value="취소" />
+		</h6>
+	</form>
+</body>
+
+</html>
